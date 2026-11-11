@@ -15,11 +15,15 @@ export const AuthGate: React.FC = () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No pudimos completar el inicio de sesión con Google.',
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('auth/unauthorized-domain')) {
+        const host = typeof window !== 'undefined' ? window.location.hostname : '';
+        setError(
+          `Dominio no autorizado en Firebase Auth (${host}). Agregalo en Firebase Console → Authentication → Configuración → Dominios autorizados.`,
+        );
+      } else {
+        setError(msg || 'No pudimos completar el inicio de sesión con Google.');
+      }
     } finally {
       setLoading(false);
     }

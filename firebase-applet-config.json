@@ -1,12 +1,12 @@
 {
-  "projectId": "positive-ray-fw1rw",
-  "appId": "1:81946405144:web:5e2da2843e143ba4c0966d",
-  "apiKey": "AIzaSyDiO1aD8rfJVzpTY6WqVl50X8jsFsb0SS0",
-  "authDomain": "positive-ray-fw1rw.firebaseapp.com",
+  "projectId": "nexopuntos",
+  "appId": "1:315501751783:web:110522c763c30d69156142",
+  "apiKey": "AIzaSyAyh983fYSLWuv5-nh77XKqwAPFK3oJcRA",
+  "authDomain": "nexopuntos.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-nexopuntos-8e210d89-8dbd-4a02-a003-a8bc99433e3f",
-  "storageBucket": "positive-ray-fw1rw.firebasestorage.app",
-  "messagingSenderId": "81946405144",
+  "storageBucket": "nexopuntos.firebasestorage.app",
+  "messagingSenderId": "315501751783",
   "measurementId": "",
-  "oAuthClientId": "81946405144-sj0vjit1q77rlpsi85mkv71iuhbktnoc.apps.googleusercontent.com",
+  "oAuthClientId": "315501751783-fqbe8bps2ic8eji2b182j0f1m165n5qa.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
