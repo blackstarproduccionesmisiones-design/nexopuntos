@@ -1,0 +1,467 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() && request.auth.token.email == 'blackstarproducciones.misiones@gmail.com';
+    }
+
+    function isValidStaffUids(arr) {
+      return arr is list && arr.size() >= 1 && arr.size() <= 25 && arr[0] is string && arr[0].size() <= 128;
+    }
+
+    function membershipDoc(comercioId) {
+      return get(/databases/$(database)/documents/membresias/$(comercioId + '_' + request.auth.uid));
+    }
+
+    function isMerchantStaff(comercioId) {
+      return isSignedIn()
+        && isValidId(comercioId)
+        && exists(/databases/$(database)/documents/membresias/$(comercioId + '_' + request.auth.uid))
+        && membershipDoc(comercioId).data.activo == true
+        && (membershipDoc(comercioId).data.rol == 'owner' || membershipDoc(comercioId).data.rol == 'employee');
+    }
+
+    function isMerchantOwner(comercioId) {
+      return isSignedIn()
+        && isValidId(comercioId)
+        && exists(/databases/$(database)/documents/membresias/$(comercioId + '_' + request.auth.uid))
+        && membershipDoc(comercioId).data.activo == true
+        && membershipDoc(comercioId).data.rol == 'owner';
+    }
+
+    function isMerchantActive(comercioId) {
+      return exists(/databases/$(database)/documents/comercios/$(comercioId))
+        && get(/databases/$(database)/documents/comercios/$(comercioId)).data.estado == 'activo';
+    }
+
+    // 3. Schema Validators
+    function isValidUsuario(data) {
+      return data.keys().hasAll(['uid', 'nombre', 'email', 'ultimoAcceso'])
+        && data.keys().hasOnly(['uid', 'nombre', 'email', 'ultimoAcceso'])
+        && data.uid is string && data.uid == request.auth.uid && data.uid.size() <= 128
+        && data.nombre is string && data.nombre.size() >= 1 && data.nombre.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 140
+        && data.ultimoAcceso is string && data.ultimoAcceso.size() <= 40;
+    }
+
+    function isValidComercio(data) {
+      return data.keys().hasAll([
+          'nombre', 'nombreCorto', 'rubro', 'colorAcento', 'plan',
+          'estado', 'limiteClientes', 'ownerUid', 'ownerEmail', 'staffUids', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'nombre', 'nombreCorto', 'rubro', 'colorAcento', 'logoUrl', 'plan',
+          'estado', 'limiteClientes', 'ownerUid', 'ownerEmail', 'staffUids', 'createdAt', 'updatedAt'
+        ])
+        && data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 80
+        && data.nombreCorto is string && data.nombreCorto.size() >= 2 && data.nombreCorto.size() <= 12
+        && data.rubro is string && data.rubro.size() >= 2 && data.rubro.size() <= 50
+        && data.colorAcento is string && data.colorAcento.size() == 7 && data.colorAcento.matches('^#[0-9a-fA-F]{6}$')
+        && (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 300))
+        && data.plan in ['starter', 'pro', 'multisucursal']
+        && data.estado in ['activo', 'suspendido']
+        && data.limiteClientes is number && data.limiteClientes >= 10 && data.limiteClientes <= 1000000
+        && data.ownerUid is string && data.ownerUid.size() >= 4 && data.ownerUid.size() <= 128
+        && data.ownerEmail is string && data.ownerEmail.size() >= 3 && data.ownerEmail.size() <= 120
+        && isValidStaffUids(data.staffUids)
+        && data.createdAt is string && data.createdAt.size() <= 40
+        && data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    function isValidConfiguracion(data) {
+      return data.keys().hasAll([
+          'comercioId', 'staffUids', 'modalidad', 'puntosPorTramo', 'pesosPorTramo', 'montoMinimoCompra',
+          'bonoPrimeraCompra', 'diasVencimiento', 'promoActiva', 'promoMultiplicador',
+          'sellosObjetivo', 'premioSellos', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'comercioId', 'staffUids', 'modalidad', 'puntosPorTramo', 'pesosPorTramo', 'montoMinimoCompra',
+          'bonoPrimeraCompra', 'diasVencimiento', 'promoActiva', 'promoMultiplicador',
+          'promoTitulo', 'sellosObjetivo', 'premioSellos', 'updatedAt'
+        ])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && data.modalidad in ['puntos', 'sellos', 'hibrido']
+        && data.puntosPorTramo is number && data.puntosPorTramo >= 1 && data.puntosPorTramo <= 10000
+        && data.pesosPorTramo is number && data.pesosPorTramo >= 1 && data.pesosPorTramo <= 1000000
+        && data.montoMinimoCompra is number && data.montoMinimoCompra >= 0 && data.montoMinimoCompra <= 1000000
+        && data.bonoPrimeraCompra is number && data.bonoPrimeraCompra >= 0 && data.bonoPrimeraCompra <= 10000
+        && data.diasVencimiento is number && data.diasVencimiento >= 0 && data.diasVencimiento <= 3650
+        && data.promoActiva is bool
+        && data.promoMultiplicador is number && data.promoMultiplicador >= 1 && data.promoMultiplicador <= 10
+        && (!('promoTitulo' in data) || (data.promoTitulo is string && data.promoTitulo.size() <= 80))
+        && data.sellosObjetivo is number && data.sellosObjetivo >= 2 && data.sellosObjetivo <= 24
+        && data.premioSellos is string && data.premioSellos.size() >= 2 && data.premioSellos.size() <= 80
+        && data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    function isValidMembresia(data) {
+      return data.keys().hasAll(['comercioId', 'ownerUid', 'uid', 'email', 'nombre', 'rol', 'activo', 'createdAt'])
+        && data.keys().hasOnly(['comercioId', 'ownerUid', 'uid', 'email', 'nombre', 'rol', 'activo', 'createdAt'])
+        && isValidId(data.comercioId)
+        && data.ownerUid is string && data.ownerUid.size() >= 4 && data.ownerUid.size() <= 128
+        && data.uid is string && data.uid.size() >= 4 && data.uid.size() <= 128
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 140
+        && data.nombre is string && data.nombre.size() >= 1 && data.nombre.size() <= 100
+        && data.rol in ['owner', 'employee']
+        && data.activo is bool
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidCliente(data) {
+      return data.keys().hasAll(['comercioId', 'staffUids', 'nombre', 'dni', 'qrToken', 'activo', 'createdByUid', 'createdAt'])
+        && data.keys().hasOnly(['comercioId', 'staffUids', 'nombre', 'dni', 'telefono', 'email', 'qrToken', 'clienteUid', 'activo', 'createdByUid', 'createdAt'])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 100
+        && data.dni is string && data.dni.size() >= 6 && data.dni.size() <= 16
+        && (!('telefono' in data) || (data.telefono is string && data.telefono.size() <= 30))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 140))
+        && data.qrToken is string && data.qrToken.matches('^NX-[A-Z0-9]{8,16}$') && data.qrToken.size() <= 24
+        && (!('clienteUid' in data) || (data.clienteUid is string && data.clienteUid.size() <= 128))
+        && data.activo is bool
+        && data.createdByUid is string && data.createdByUid.size() <= 128
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidCuentaPuntos(data) {
+      return data.keys().hasAll(['comercioId', 'staffUids', 'clienteId', 'puntosDisponibles', 'sellosActuales', 'totalAcumulado', 'totalCanjeado', 'visitas', 'updatedAt'])
+        && data.keys().hasOnly(['comercioId', 'staffUids', 'clienteId', 'clienteUid', 'clienteEmail', 'puntosDisponibles', 'sellosActuales', 'totalAcumulado', 'totalCanjeado', 'visitas', 'ultimaOperacionId', 'venceEl', 'updatedAt'])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && isValidId(data.clienteId)
+        && (!('clienteUid' in data) || (data.clienteUid is string && data.clienteUid.size() <= 128))
+        && (!('clienteEmail' in data) || (data.clienteEmail is string && data.clienteEmail.size() <= 140))
+        && data.puntosDisponibles is number && data.puntosDisponibles >= 0 && data.puntosDisponibles <= 10000000
+        && data.sellosActuales is number && data.sellosActuales >= 0 && data.sellosActuales <= 100
+        && data.totalAcumulado is number && data.totalAcumulado >= 0
+        && data.totalCanjeado is number && data.totalCanjeado >= 0
+        && data.visitas is number && data.visitas >= 0
+        && (!('ultimaOperacionId' in data) || (data.ultimaOperacionId is string && data.ultimaOperacionId.size() <= 128))
+        && (!('venceEl' in data) || (data.venceEl is string && data.venceEl.size() <= 40))
+        && data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    function isValidMovimientoPuntos(data) {
+      return data.keys().hasAll([
+          'comercioId', 'staffUids', 'clienteId', 'clienteNombre', 'tipo', 'concepto', 'puntos',
+          'sellos', 'montoCompra', 'saldoResultante', 'autorizadoPorUid',
+          'autorizadoPorNombre', 'operacionId', 'revertido', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'comercioId', 'staffUids', 'clienteId', 'clienteUid', 'clienteEmail', 'clienteNombre', 'tipo', 'concepto', 'puntos',
+          'sellos', 'montoCompra', 'saldoResultante', 'autorizadoPorUid',
+          'autorizadoPorNombre', 'operacionId', 'revertido', 'createdAt'
+        ])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && isValidId(data.clienteId)
+        && (!('clienteUid' in data) || (data.clienteUid is string && data.clienteUid.size() <= 128))
+        && (!('clienteEmail' in data) || (data.clienteEmail is string && data.clienteEmail.size() <= 140))
+        && data.clienteNombre is string && data.clienteNombre.size() >= 1 && data.clienteNombre.size() <= 100
+        && data.tipo in ['credito', 'debito', 'canje', 'ajuste', 'reversion']
+        && data.concepto is string && data.concepto.size() >= 2 && data.concepto.size() <= 160
+        && data.puntos is number && data.puntos >= -1000000 && data.puntos <= 1000000
+        && data.sellos is number && data.sellos >= -100 && data.sellos <= 100
+        && data.montoCompra is number && data.montoCompra >= 0 && data.montoCompra <= 100000000
+        && data.saldoResultante is number && data.saldoResultante >= 0
+        && data.autorizadoPorUid is string && data.autorizadoPorUid == request.auth.uid && data.autorizadoPorUid.size() <= 128
+        && data.autorizadoPorNombre is string && data.autorizadoPorNombre.size() >= 1 && data.autorizadoPorNombre.size() <= 100
+        && isValidId(data.operacionId)
+        && data.revertido is bool
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidPremio(data) {
+      return data.keys().hasAll(['comercioId', 'staffUids', 'titulo', 'descripcion', 'puntosRequeridos', 'activo', 'createdAt'])
+        && data.keys().hasOnly(['comercioId', 'staffUids', 'titulo', 'descripcion', 'puntosRequeridos', 'activo', 'imageKey', 'createdAt'])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && data.titulo is string && data.titulo.size() >= 2 && data.titulo.size() <= 80
+        && data.descripcion is string && data.descripcion.size() <= 200
+        && data.puntosRequeridos is number && data.puntosRequeridos >= 1 && data.puntosRequeridos <= 1000000
+        && data.activo is bool
+        && (!('imageKey' in data) || (data.imageKey is string && data.imageKey.size() <= 40))
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidCanje(data) {
+      return data.keys().hasAll([
+          'comercioId', 'staffUids', 'clienteId', 'clienteNombre', 'premioId', 'premioTitulo',
+          'puntosUsados', 'estado', 'codigoValidacion', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'comercioId', 'staffUids', 'clienteId', 'clienteUid', 'clienteEmail', 'clienteNombre', 'premioId', 'premioTitulo',
+          'puntosUsados', 'estado', 'codigoValidacion', 'autorizadoPorUid',
+          'autorizadoPorNombre', 'createdAt', 'entregadoAt'
+        ])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && isValidId(data.clienteId)
+        && (!('clienteUid' in data) || (data.clienteUid is string && data.clienteUid.size() <= 128))
+        && (!('clienteEmail' in data) || (data.clienteEmail is string && data.clienteEmail.size() <= 140))
+        && data.clienteNombre is string && data.clienteNombre.size() >= 1 && data.clienteNombre.size() <= 100
+        && data.premioId is string && data.premioId.size() >= 1 && data.premioId.size() <= 128
+        && data.premioTitulo is string && data.premioTitulo.size() >= 2 && data.premioTitulo.size() <= 80
+        && data.puntosUsados is number && data.puntosUsados >= 0 && data.puntosUsados <= 1000000
+        && data.estado in ['pendiente', 'entregado', 'cancelado']
+        && data.codigoValidacion is string && data.codigoValidacion.size() >= 4 && data.codigoValidacion.size() <= 20
+        && (!('autorizadoPorUid' in data) || (data.autorizadoPorUid is string && data.autorizadoPorUid.size() <= 128))
+        && (!('autorizadoPorNombre' in data) || (data.autorizadoPorNombre is string && data.autorizadoPorNombre.size() <= 100))
+        && data.createdAt is string && data.createdAt.size() <= 40
+        && (!('entregadoAt' in data) || (data.entregadoAt is string && data.entregadoAt.size() <= 40));
+    }
+
+    function isValidNotificacion(data) {
+      return data.keys().hasAll(['comercioId', 'staffUids', 'titulo', 'mensaje', 'segmento', 'destinatarios', 'publico', 'creadoPorUid', 'createdAt'])
+        && data.keys().hasOnly(['comercioId', 'staffUids', 'titulo', 'mensaje', 'segmento', 'destinatarios', 'publico', 'creadoPorUid', 'createdAt'])
+        && isValidId(data.comercioId)
+        && isValidStaffUids(data.staffUids)
+        && data.titulo is string && data.titulo.size() >= 2 && data.titulo.size() <= 80
+        && data.mensaje is string && data.mensaje.size() >= 2 && data.mensaje.size() <= 240
+        && data.segmento in ['all', 'frequent', 'redeemable']
+        && data.destinatarios is number && data.destinatarios >= 0
+        && data.publico is bool
+        && data.creadoPorUid is string && data.creadoPorUid == request.auth.uid && data.creadoPorUid.size() <= 128
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidOperacion(data) {
+      return data.keys().hasAll(['comercioId', 'autorizadoPorUid', 'createdAt'])
+        && data.keys().hasOnly(['comercioId', 'autorizadoPorUid', 'createdAt'])
+        && isValidId(data.comercioId)
+        && data.autorizadoPorUid is string && data.autorizadoPorUid == request.auth.uid && data.autorizadoPorUid.size() <= 128
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    // 4. Collection Rules (Zero get()/exists() in allow list!)
+    match /usuarios/{userId} {
+      allow get: if isValidId(userId) && (isMasterAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow list: if isMasterAdmin();
+      allow create, update: if isValidId(userId)
+        && isSignedIn()
+        && request.auth.uid == userId
+        && isValidUsuario(incoming());
+    }
+
+    match /comercios/{comercioId} {
+      allow get: if isValidId(comercioId) && (isMasterAdmin() || isSignedIn());
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (request.auth.uid in resource.data.staffUids || resource.data.estado == 'activo'));
+      allow create: if isValidId(comercioId)
+        && isMasterAdmin()
+        && isValidComercio(incoming());
+      allow update: if isValidId(comercioId) && isValidComercio(incoming()) && (
+        isMasterAdmin() ||
+        (isMerchantOwner(comercioId)
+          && incoming().plan == existing().plan
+          && incoming().estado == existing().estado
+          && incoming().limiteClientes == existing().limiteClientes
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'nombreCorto', 'rubro', 'colorAcento', 'logoUrl', 'staffUids', 'updatedAt']))
+      );
+      allow delete: if isValidId(comercioId) && isMasterAdmin();
+    }
+
+    match /configuracion/{comercioId} {
+      allow get: if isValidId(comercioId) && isSignedIn();
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && request.auth.uid in resource.data.staffUids);
+      allow create, update: if isValidId(comercioId)
+        && isValidConfiguracion(incoming())
+        && incoming().comercioId == comercioId
+        && (isMasterAdmin() || isMerchantOwner(comercioId));
+    }
+
+    match /membresias/{membresiaId} {
+      allow get: if isValidId(membresiaId)
+        && isSignedIn()
+        && (isMasterAdmin() || existing().uid == request.auth.uid || isMerchantOwner(existing().comercioId));
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (resource.data.uid == request.auth.uid || resource.data.ownerUid == request.auth.uid));
+      allow create: if isValidId(membresiaId)
+        && isValidMembresia(incoming())
+        && (isMasterAdmin() || isMerchantOwner(incoming().comercioId));
+      allow update: if isValidId(membresiaId)
+        && isValidMembresia(incoming())
+        && incoming().comercioId == existing().comercioId
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && (isMasterAdmin() || (
+          isMerchantOwner(existing().comercioId)
+          && incoming().diff(existing()).affectedKeys().hasOnly(['rol', 'activo', 'nombre'])
+        ));
+      allow delete: if isValidId(membresiaId) && (isMasterAdmin() || isMerchantOwner(existing().comercioId));
+    }
+
+    match /clientes/{clienteId} {
+      allow get: if isValidId(clienteId) && isSignedIn() && (
+        isMasterAdmin()
+        || isMerchantStaff(existing().comercioId)
+        || existing().clienteUid == request.auth.uid
+        || existing().email == request.auth.token.email
+      );
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (
+          request.auth.uid in resource.data.staffUids
+          || resource.data.clienteUid == request.auth.uid
+          || resource.data.email == request.auth.token.email
+        ));
+      allow create: if isValidId(clienteId)
+        && isValidCliente(incoming())
+        && (isMasterAdmin() || (isMerchantStaff(incoming().comercioId) && isMerchantActive(incoming().comercioId)))
+        && incoming().createdByUid == request.auth.uid;
+      allow update: if isValidId(clienteId)
+        && isValidCliente(incoming())
+        && incoming().comercioId == existing().comercioId
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && (
+          isMasterAdmin()
+          || (isMerchantStaff(existing().comercioId)
+              && incoming().diff(existing()).affectedKeys().hasOnly(['nombre', 'dni', 'telefono', 'email', 'clienteUid', 'staffUids', 'activo']))
+          || (isSignedIn()
+              && !('clienteUid' in existing())
+              && existing().email == request.auth.token.email
+              && incoming().clienteUid == request.auth.uid
+              && incoming().diff(existing()).affectedKeys().hasOnly(['clienteUid']))
+        );
+    }
+
+    match /cuentas_puntos/{cuentaId} {
+      allow get: if isValidId(cuentaId) && isSignedIn() && (
+        isMasterAdmin()
+        || isMerchantStaff(existing().comercioId)
+        || existing().clienteUid == request.auth.uid
+        || existing().clienteEmail == request.auth.token.email
+      );
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (
+          request.auth.uid in resource.data.staffUids
+          || resource.data.clienteUid == request.auth.uid
+          || resource.data.clienteEmail == request.auth.token.email
+        ));
+      allow create: if isValidId(cuentaId)
+        && isValidCuentaPuntos(incoming())
+        && (isMasterAdmin() || (isMerchantStaff(incoming().comercioId) && isMerchantActive(incoming().comercioId)));
+      allow update: if isValidId(cuentaId)
+        && isValidCuentaPuntos(incoming())
+        && incoming().comercioId == existing().comercioId
+        && incoming().clienteId == existing().clienteId
+        && (
+          isMasterAdmin()
+          || (isMerchantStaff(existing().comercioId)
+              && isMerchantActive(existing().comercioId)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'puntosDisponibles', 'sellosActuales', 'totalAcumulado', 'totalCanjeado',
+                'visitas', 'ultimaOperacionId', 'venceEl', 'updatedAt', 'clienteUid', 'clienteEmail', 'staffUids'
+              ]))
+        );
+    }
+
+    match /movimientos_puntos/{movimientoId} {
+      allow get: if isValidId(movimientoId) && isSignedIn() && (
+        isMasterAdmin()
+        || isMerchantStaff(existing().comercioId)
+        || existing().clienteUid == request.auth.uid
+        || existing().clienteEmail == request.auth.token.email
+      );
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (
+          request.auth.uid in resource.data.staffUids
+          || resource.data.clienteUid == request.auth.uid
+          || resource.data.clienteEmail == request.auth.token.email
+        ));
+      allow create: if isValidId(movimientoId)
+        && isValidMovimientoPuntos(incoming())
+        && (isMasterAdmin() || (isMerchantStaff(incoming().comercioId) && isMerchantActive(incoming().comercioId)))
+        && exists(/databases/$(database)/documents/clientes/$(incoming().clienteId));
+      allow update: if isValidId(movimientoId)
+        && isValidMovimientoPuntos(incoming())
+        && (isMasterAdmin() || isMerchantStaff(existing().comercioId))
+        && existing().revertido == false
+        && incoming().revertido == true
+        && incoming().diff(existing()).affectedKeys().hasOnly(['revertido']);
+    }
+
+    match /premios/{premioId} {
+      allow get: if isValidId(premioId) && isSignedIn();
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (resource.data.activo == true || request.auth.uid in resource.data.staffUids));
+      allow create: if isValidId(premioId)
+        && isValidPremio(incoming())
+        && (isMasterAdmin() || isMerchantOwner(incoming().comercioId));
+      allow update: if isValidId(premioId)
+        && isValidPremio(incoming())
+        && incoming().comercioId == existing().comercioId
+        && incoming().createdAt == existing().createdAt
+        && (isMasterAdmin() || isMerchantOwner(existing().comercioId));
+      allow delete: if isValidId(premioId) && (isMasterAdmin() || isMerchantOwner(existing().comercioId));
+    }
+
+    match /canjes/{canjeId} {
+      allow get: if isValidId(canjeId) && isSignedIn() && (
+        isMasterAdmin()
+        || isMerchantStaff(existing().comercioId)
+        || existing().clienteUid == request.auth.uid
+        || existing().clienteEmail == request.auth.token.email
+      );
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (
+          request.auth.uid in resource.data.staffUids
+          || resource.data.clienteUid == request.auth.uid
+          || resource.data.clienteEmail == request.auth.token.email
+        ));
+      allow create: if isValidId(canjeId)
+        && isValidCanje(incoming())
+        && (isMasterAdmin() || (isMerchantStaff(incoming().comercioId) && isMerchantActive(incoming().comercioId)));
+      allow update: if isValidId(canjeId)
+        && isValidCanje(incoming())
+        && existing().estado == 'pendiente'
+        && (isMasterAdmin() || isMerchantStaff(existing().comercioId))
+        && incoming().diff(existing()).affectedKeys().hasOnly(['estado', 'autorizadoPorUid', 'autorizadoPorNombre', 'entregadoAt']);
+    }
+
+    match /notificaciones/{notifId} {
+      allow get: if isValidId(notifId) && isSignedIn();
+      allow list: if isMasterAdmin()
+        || (isSignedIn() && (resource.data.publico == true || request.auth.uid in resource.data.staffUids));
+      allow create: if isValidId(notifId)
+        && isValidNotificacion(incoming())
+        && (isMasterAdmin() || isMerchantStaff(incoming().comercioId));
+    }
+
+    match /operaciones_idempotentes/{operacionId} {
+      allow get: if isValidId(operacionId) && isSignedIn() && (
+        isMasterAdmin() || isMerchantStaff(existing().comercioId)
+      );
+      allow create: if isValidId(operacionId)
+        && isValidOperacion(incoming())
+        && (isMasterAdmin() || (isMerchantStaff(incoming().comercioId) && isMerchantActive(incoming().comercioId)));
+    }
+  }
+}

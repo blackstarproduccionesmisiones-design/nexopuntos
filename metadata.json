@@ -1,0 +1,6 @@
+{
+  "name": "NEXO PUNTOS",
+  "description": "Sistema de fidelización, tarjeta digital, sellos, escalera de premios, Google Wallet, Apple Wallet y notificaciones push para locales comerciales.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,253 @@
+{
+  "entities": {
+    "Comercio": {
+      "title": "Comercio",
+      "description": "Negocio adherido a NEXO PUNTOS con plan, estado y datos de marca.",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "nombreCorto": { "type": "string", "minLength": 2, "maxLength": 12 },
+        "rubro": { "type": "string", "maxLength": 50 },
+        "colorAcento": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "logoUrl": { "type": "string", "maxLength": 300 },
+        "plan": { "type": "string", "enum": ["starter", "pro", "multisucursal"] },
+        "estado": { "type": "string", "enum": ["activo", "suspendido"] },
+        "limiteClientes": { "type": "number" },
+        "ownerUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "staffUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nombre", "nombreCorto", "rubro", "colorAcento", "plan", "estado", "limiteClientes", "ownerUid", "ownerEmail", "staffUids", "createdAt", "updatedAt"]
+    },
+    "Configuracion": {
+      "title": "Configuracion",
+      "description": "Reglas de acumulación, sellos, bonificaciones y vencimientos de cada comercio.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "modalidad": { "type": "string", "enum": ["puntos", "sellos", "hibrido"] },
+        "puntosPorTramo": { "type": "number" },
+        "pesosPorTramo": { "type": "number" },
+        "montoMinimoCompra": { "type": "number" },
+        "bonoPrimeraCompra": { "type": "number" },
+        "diasVencimiento": { "type": "number" },
+        "promoActiva": { "type": "boolean" },
+        "promoMultiplicador": { "type": "number" },
+        "promoTitulo": { "type": "string", "maxLength": 80 },
+        "sellosObjetivo": { "type": "number" },
+        "premioSellos": { "type": "string", "maxLength": 80 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "staffUids", "modalidad", "puntosPorTramo", "pesosPorTramo", "montoMinimoCompra", "bonoPrimeraCompra", "diasVencimiento", "promoActiva", "promoMultiplicador", "sellosObjetivo", "premioSellos", "updatedAt"]
+    },
+    "Usuario": {
+      "title": "Usuario",
+      "description": "Perfil básico de usuario autenticado en NEXO PUNTOS.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "nombre": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 140 },
+        "ultimoAcceso": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "nombre", "email", "ultimoAcceso"]
+    },
+    "Membresia": {
+      "title": "Membresia",
+      "description": "Relación usuario-comercio y rol autorizado (owner o employee).",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "ownerUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "uid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 140 },
+        "nombre": { "type": "string", "maxLength": 100 },
+        "rol": { "type": "string", "enum": ["owner", "employee"] },
+        "activo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "ownerUid", "uid", "email", "nombre", "rol", "activo", "createdAt"]
+    },
+    "Cliente": {
+      "title": "Cliente",
+      "description": "Cliente registrado en un comercio con identificador QR aleatorio.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "nombre": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "dni": { "type": "string", "minLength": 6, "maxLength": 16 },
+        "telefono": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 140 },
+        "qrToken": { "type": "string", "pattern": "^NX-[A-Z0-9]{8,16}$", "maxLength": 24 },
+        "clienteUid": { "type": "string", "maxLength": 128 },
+        "activo": { "type": "boolean" },
+        "createdByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "staffUids", "nombre", "dni", "qrToken", "activo", "createdByUid", "createdAt"]
+    },
+    "CuentaPuntos": {
+      "title": "CuentaPuntos",
+      "description": "Saldo consolidado de puntos y sellos del cliente en un comercio.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "clienteId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "clienteUid": { "type": "string", "maxLength": 128 },
+        "clienteEmail": { "type": "string", "maxLength": 140 },
+        "puntosDisponibles": { "type": "number" },
+        "sellosActuales": { "type": "number" },
+        "totalAcumulado": { "type": "number" },
+        "totalCanjeado": { "type": "number" },
+        "visitas": { "type": "number" },
+        "ultimaOperacionId": { "type": "string", "maxLength": 128 },
+        "venceEl": { "type": "string", "maxLength": 40 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "staffUids", "clienteId", "puntosDisponibles", "sellosActuales", "totalAcumulado", "totalCanjeado", "visitas", "updatedAt"]
+    },
+    "MovimientoPuntos": {
+      "title": "MovimientoPuntos",
+      "description": "Registro individual inmutable de crédito, débito, canje, ajuste o reversión.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "clienteId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "clienteUid": { "type": "string", "maxLength": 128 },
+        "clienteEmail": { "type": "string", "maxLength": 140 },
+        "clienteNombre": { "type": "string", "maxLength": 100 },
+        "tipo": { "type": "string", "enum": ["credito", "debito", "canje", "ajuste", "reversion"] },
+        "concepto": { "type": "string", "maxLength": 160 },
+        "puntos": { "type": "number" },
+        "sellos": { "type": "number" },
+        "montoCompra": { "type": "number" },
+        "saldoResultante": { "type": "number" },
+        "autorizadoPorUid": { "type": "string", "maxLength": 128 },
+        "autorizadoPorNombre": { "type": "string", "maxLength": 100 },
+        "operacionId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "revertido": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "staffUids", "clienteId", "clienteNombre", "tipo", "concepto", "puntos", "sellos", "montoCompra", "saldoResultante", "autorizadoPorUid", "autorizadoPorNombre", "operacionId", "revertido", "createdAt"]
+    },
+    "Premio": {
+      "title": "Premio",
+      "description": "Recompensa canjeable del catálogo de un comercio.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "titulo": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "descripcion": { "type": "string", "maxLength": 200 },
+        "puntosRequeridos": { "type": "number" },
+        "activo": { "type": "boolean" },
+        "imageKey": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "staffUids", "titulo", "descripcion", "puntosRequeridos", "activo", "createdAt"]
+    },
+    "Canje": {
+      "title": "Canje",
+      "description": "Solicitud y entrega de un premio por parte de un cliente.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "clienteId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "clienteUid": { "type": "string", "maxLength": 128 },
+        "clienteEmail": { "type": "string", "maxLength": 140 },
+        "clienteNombre": { "type": "string", "maxLength": 100 },
+        "premioId": { "type": "string", "maxLength": 128 },
+        "premioTitulo": { "type": "string", "maxLength": 80 },
+        "puntosUsados": { "type": "number" },
+        "estado": { "type": "string", "enum": ["pendiente", "entregado", "cancelado"] },
+        "codigoValidacion": { "type": "string", "maxLength": 20 },
+        "autorizadoPorUid": { "type": "string", "maxLength": 128 },
+        "autorizadoPorNombre": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "entregadoAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["comercioId", "staffUids", "clienteId", "clienteNombre", "premioId", "premioTitulo", "puntosUsados", "estado", "codigoValidacion", "createdAt"]
+    },
+    "Notificacion": {
+      "title": "Notificacion",
+      "description": "Notificación directa enviada por el comercio a sus clientes.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "staffUids": { "type": "array" },
+        "titulo": { "type": "string", "maxLength": 80 },
+        "mensaje": { "type": "string", "maxLength": 240 },
+        "segmento": { "type": "string", "enum": ["all", "frequent", "redeemable"] },
+        "destinatarios": { "type": "number" },
+        "publico": { "type": "boolean" },
+        "creadoPorUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "staffUids", "titulo", "mensaje", "segmento", "destinatarios", "publico", "creadoPorUid", "createdAt"]
+    },
+    "OperacionIdempotente": {
+      "title": "OperacionIdempotente",
+      "description": "Registro de llave de operación única para prevenir duplicaciones por doble escaneo.",
+      "type": "object",
+      "properties": {
+        "comercioId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$", "maxLength": 128 },
+        "autorizadoPorUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["comercioId", "autorizadoPorUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/comercios/{comercioId}": {
+      "schema": { "$ref": "#/entities/Comercio" },
+      "description": "Comercios registrados en NEXO PUNTOS"
+    },
+    "/configuracion/{comercioId}": {
+      "schema": { "$ref": "#/entities/Configuracion" },
+      "description": "Reglas de acumulación, sellos y vencimiento por comercio"
+    },
+    "/usuarios/{userId}": {
+      "schema": { "$ref": "#/entities/Usuario" },
+      "description": "Usuarios autenticados en la plataforma"
+    },
+    "/membresias/{membresiaId}": {
+      "schema": { "$ref": "#/entities/Membresia" },
+      "description": "Roles owner/employee por comercio"
+    },
+    "/clientes/{clienteId}": {
+      "schema": { "$ref": "#/entities/Cliente" },
+      "description": "Clientes fidelizados aislados por comercioId"
+    },
+    "/cuentas_puntos/{cuentaId}": {
+      "schema": { "$ref": "#/entities/CuentaPuntos" },
+      "description": "Saldo de puntos y sellos por cliente y comercio"
+    },
+    "/movimientos_puntos/{movimientoId}": {
+      "schema": { "$ref": "#/entities/MovimientoPuntos" },
+      "description": "Historial auditable e inmutable de créditos y débitos"
+    },
+    "/premios/{premioId}": {
+      "schema": { "$ref": "#/entities/Premio" },
+      "description": "Catálogo de premios por comercio"
+    },
+    "/canjes/{canjeId}": {
+      "schema": { "$ref": "#/entities/Canje" },
+      "description": "Canjes solicitados y entregados por comercio"
+    },
+    "/notificaciones/{notifId}": {
+      "schema": { "$ref": "#/entities/Notificacion" },
+      "description": "Notificaciones push del comercio"
+    },
+    "/operaciones_idempotentes/{operacionId}": {
+      "schema": { "$ref": "#/entities/OperacionIdempotente" },
+      "description": "Llaves idempotentes para evitar doble acreditación"
+    }
+  }
+}
